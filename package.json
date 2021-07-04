@@ -1,0 +1,36 @@
+{
+	"name": "app",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"postinstall": "patch-package",
+		"run": "nodemon index.js"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"@bull-board/express": "^3.3.0",
+		"@google-cloud/vision": "^2.3.3",
+		"axios": "^0.21.1",
+		"bull": "^3.22.10",
+		"dotenv": "^10.0.0",
+		"exifr": "^7.1.2",
+		"express": "^4.17.1",
+		"ffprobe": "^1.1.2",
+		"fluent-ffmpeg": "^2.1.2",
+		"google-auth-library": "^7.1.2",
+		"ioredis": "^4.27.6",
+		"jimp": "^0.16.1",
+		"lodash": "^4.17.21",
+		"md5-file": "^5.0.0",
+		"mongoose": "^5.13.0",
+		"mongoose-aggregate-paginate-v2": "^1.0.42",
+		"morgan": "^1.10.0",
+		"music-metadata": "^7.8.8",
+		"node-syncthing": "^3.3.7",
+		"patch-package": "^6.4.7"
+	}
+}

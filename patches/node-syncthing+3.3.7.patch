@@ -1,0 +1,13 @@
+diff --git a/node_modules/node-syncthing/lib/event-caller.js b/node_modules/node-syncthing/lib/event-caller.js
+index a7f6fe6..0762f50 100644
+--- a/node_modules/node-syncthing/lib/event-caller.js
++++ b/node_modules/node-syncthing/lib/event-caller.js
+@@ -47,7 +47,7 @@ function eventCaller(req, retries, events) {
+       //Check for event count on first request iteration
+       if (since != 0) {
+         eventArr.forEach(function (e) {
+-          _this.emit(lowerCaseFirst(e.type), e.data);
++          _this.emit(lowerCaseFirst(e.type), e.data, e);
+         });
+       }
+ 
