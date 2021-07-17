@@ -9,15 +9,19 @@ module.exports = mongoose => {
 			type: String,
 			default: './backup',
 		},
-		importPaths: [String],
+		lastScan: Date,
+		lastScanCompleted: Date,
 		syncthing: {
 			host: { type: String, default: 'localhost' },
 			port: { type: String, default: '8384' },
 			apiKey: String,
 			importFolders: [String],
-			lastScan: Date,
-			lastScanCompleted: Date,
 		},
+		vision: {
+			client_email: String,
+			private_key: String,
+		},
+		searchApiKey: String,
 	})
 
 	return mongoose.model('Settings', schema)

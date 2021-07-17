@@ -1,8 +1,17 @@
 const { default: axios } = require('axios')
 const path = require('path')
-const key = '***REMOVED***'
 const models = require('../../../models')
+const createError = require('http-errors')
+const Redis = require('ioredis')
+const sub = new Redis()
+let key
+
+sub.subscribe('settings.searchApiKey', err => err && console.error('redis error subscribing to settings.searchApiKey: ', err))
+sub.on('message', (channel, message) => (key = JSON.parse(message)))
+
 async function getEntities(query, limit = 500) {
+	if (!key) throw createError(400, 'Search is unavailable without searchApiKey')
+
 	const res = await axios.get('https://kgsearch.googleapis.com/v1/entities:search', {
 		params: {
 			query,
@@ -11,7 +20,8 @@ async function getEntities(query, limit = 500) {
 			languages: 'ru',
 		},
 	})
-	console.log(res.data)
+
+	console.log(res.data.itemListElement)
 
 	return res.data.itemListElement.map(({ resultScore: score, result: { '@id': mid, detailedDescription, description } }) => ({
 		score,

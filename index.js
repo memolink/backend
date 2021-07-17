@@ -16,11 +16,11 @@ const { addQueue, removeQueue, setQueues, replaceQueues } = createBullBoard({
 })
 
 const app = express()
+app.use('/queues', serverAdapter.getRouter())
 app.use(morgan('tiny'))
 app.use(express.json())
-app.use('/queues', serverAdapter.getRouter())
 const server = http.createServer(app)
-app.set('port', 3001)
+app.set('port', process.env.PORT || 3001)
 
 require('./services/recognition/queues/init.js')
 const recognition = require('./services/recognition/service')

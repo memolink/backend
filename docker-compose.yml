@@ -1,0 +1,45 @@
+version: '3'
+
+services:
+    backend:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: node:14-alpine
+        container_name: backend
+        restart: unless-stopped
+        env_file: .env
+        # environment:
+        #   - MONGO_USERNAME=$MONGO_USERNAME
+        #   - MONGO_PASSWORD=$MONGO_PASSWORD
+        #   - MONGO_HOSTNAME=db
+        #   - MONGO_PORT=$MONGO_PORT
+        #   - MONGO_DB=$MONGO_DB
+        ports:
+            - '3001:3001'
+        volumes:
+            - .:/home/node/app
+            - node_modules:/home/node/app/node_modules
+        networks:
+            - app-network
+        command: /home/node/app/node_modules/.bin/nodemon index.js
+    db:
+        image: mongo
+        container_name: db
+        restart: unless-stopped
+        env_file: .env
+        # environment:
+        #     - MONGO_INITDB_ROOT_USERNAME=$MONGO_USERNAME
+        #     - MONGO_INITDB_ROOT_PASSWORD=$MONGO_PASSWORD
+        volumes:
+            - dbdata:/data/db
+        networks:
+            - app-network
+
+networks:
+    app-network:
+        driver: bridge
+
+volumes:
+    dbdata:
+    node_modules:

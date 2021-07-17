@@ -29,6 +29,7 @@ module.exports = mongoose => {
 		height: Number,
 		hash: String,
 		originalHash: String,
+		backup: Boolean,
 		location: {
 			type: pointSchema,
 			index: '2dsphere',

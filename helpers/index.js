@@ -1,3 +1,8 @@
+const ffmpeg = require('fluent-ffmpeg')
+const { promisify } = require('util')
+
+const ffprobe = promisify(ffmpeg.ffprobe)
+
 const rotationActions = {
 	1: { dimensionSwapped: false, scaleX: 1, scaleY: 1, deg: 0, rad: 0 },
 	2: { dimensionSwapped: false, scaleX: -1, scaleY: 1, deg: 0, rad: 0 },
@@ -9,4 +14,4 @@ const rotationActions = {
 	8: { dimensionSwapped: true, scaleX: 1, scaleY: 1, deg: 270, rad: (270 * Math.PI) / 180 },
 }
 
-module.exports = { rotationActions }
+module.exports = { rotationActions, ffprobe }

@@ -6,9 +6,8 @@ mongoose.set('useFindAndModify', false)
 mongoose.set('useCreateIndex', true)
 mongoose.set('useUnifiedTopology', true)
 mongoose.Promise = Promise
-const { MONGOOSE_URL } = require('../config')
 
-mongoose.connect(MONGOOSE_URL)
+mongoose.connect(process.env.MONGOOSE_URL)
 
 /**
  * @typedef {Object} models

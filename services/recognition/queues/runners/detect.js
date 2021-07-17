@@ -1,6 +1,7 @@
 const md5File = require('md5-file')
 const models = require('../../../../models')
 const { photoQueue } = require('..')
+const fs = require('fs/promises')
 
 module.exports = async function ({ data: { files }, ...job }) {
 	const hashes = []
@@ -23,11 +24,16 @@ module.exports = async function ({ data: { files }, ...job }) {
 	const uploadedFiles = await models.Photo.find(
 		{
 			$or: [{ hash: { $in: hashes.map(({ hash }) => hash) } }, { originalHash: { $in: hashes.map(({ hash }) => hash) } }],
+			backup: true,
 		},
 		['hash', 'originalHash']
 	)
 	const uploadedHashes = uploadedFiles.flatMap(({ hash, originalHash }) => [hash, originalHash])
-	const newFiles = hashes.filter(({ hash }) => !uploadedHashes.includes(hash))
+	const newFiles = []
+	for (let { hash, filePath } of hashes) {
+		if (uploadedHashes.includes(hash)) await fs.unlink(filePath)
+		else newFiles.push({ hash, filePath })
+	}
 	console.log('hashes', hashes.length, 'uploadedHashes', uploadedHashes.length, 'newFiles', newFiles.length)
 
 	await photoQueue.addBulk(newFiles.map(data => ({ data })))

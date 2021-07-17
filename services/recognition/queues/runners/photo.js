@@ -2,16 +2,12 @@ const vision = require('@google-cloud/vision')
 const models = require('../../../../models')
 const fs = require('fs/promises')
 const exifr = require('exifr')
-const ffprobe = require('ffprobe')
 const md5File = require('md5-file')
-const client = new vision.ImageAnnotatorClient({
-	keyFilename: process.env.key_file,
-	credentials: process.env.client_email && { client_email: process.env.client_email, private_key: process.env.private_key },
-})
-const Redis = require('ioredis')
-const redis = new Redis()
 const { backupQueue } = require('..')
-const { rotationActions } = require('../../../../helpers')
+const { rotationActions, ffprobe } = require('../../../../helpers')
+const Redis = require('ioredis')
+const sub = new Redis()
+let client
 
 const rotations = {
 	'Horizontal (normal)': 1,
@@ -24,41 +20,69 @@ const rotations = {
 	'Rotate 270 CW': 8,
 }
 
+// should be called on settings.vision update
+async function updateClient({ client_email, private_key } = {}) {
+	if (!client_email || !private_key) {
+		const settings = await models.Settings.findOne({}, 'vision')
+		;({ client_email, private_key } = settings?.vision || {})
+	}
+
+	if (!client_email || !private_key) client = false
+	else
+		client = new vision.ImageAnnotatorClient({
+			credentials: { client_email, private_key },
+		})
+}
+
+sub.subscribe('settings.vision', err => err && console.error('redis error subscribing to settings.vision: ', err))
+sub.on('message', (channel, message) => updateClient(JSON.parse(message)))
+
 module.exports = async function (job) {
+	if (client === undefined) await updateClient()
+
 	const { filePath, hash } = job.data
 	if (!hash) hash = await md5File(filePath)
-	// const hashDuplicate = await models.Photo.findOne({ $or: [{ hash }, { originalHash: hash }] })
-	// if (hashDuplicate) return { filePath, hashDuplicate }
+
+	const hashDuplicate = await models.Photo.findOne({ $or: [{ hash }, { originalHash: hash }] })
+	if (hashDuplicate) return { filePath, hashDuplicate }
 
 	const exif = await exifr.parse(filePath).catch(err => console.error('exif: ', err, filePath))
 	const rotated = rotations[exif?.Orientation] || null
+	const ff = await ffprobe(filePath).catch(err => console.error('ff: ', err))
+	if (!ff && !exif) {
+		await fs.unlink(filePath)
+		return { filePath, notMedia: true }
+	}
 
-	const ff = await ffprobe(filePath, { path: './ffprobe.exe' }).catch(err => console.error('ff: ', err))
 	const stat = await fs.stat(filePath).catch(err => console.error('stat: ', err))
 	//console.log(util.inspect({ exif, ff, stat }, { showHidden: false, depth: null }))
 	job.progress(30)
-	// const tags = []
-	const [{ labelAnnotations: tags }] = exif
-		? await client
-				.annotateImage({
-					image: {
-						source: {
-							filename: filePath,
-						},
+	let tags
+	if (!exif) {
+		tags = false
+	} else if (!client) {
+		tags = null
+	} else {
+		await client
+			.annotateImage({
+				image: {
+					source: {
+						filename: filePath,
 					},
-					features: [
-						{
-							type: 'LABEL_DETECTION',
-							maxResults: 15,
-						},
-					],
-				})
-				.catch(err => console.error(err))
-		: [{}]
+				},
+				features: [
+					{
+						type: 'LABEL_DETECTION',
+						maxResults: 15,
+					},
+				],
+			})
+			.then(result => (tags = result?.[0]?.labelAnnotations || false))
+	}
 
 	job.progress(70)
 
-	const video = ff.streams.some(({ duration_ts }) => duration_ts > 1)
+	const video = ff?.streams?.some(({ duration_ts }) => duration_ts > 1)
 
 	const dimensions = [exif?.ExifImageWidth || ff?.streams?.[0]?.width, exif?.ExifImageHeight || ff?.streams?.[0]?.height]
 	if (rotationActions?.[rotated]?.dimensionSwapped) dimensions.reverse()
@@ -86,11 +110,9 @@ module.exports = async function (job) {
 			tags,
 			metadata: exif,
 		},
-		{ new: true }
+		{ new: true, upsert: true }
 	)
-	if (!photo) return 'not found hash'
 
-	console.log(photo)
 	backupQueue.add({ ff, width, height, rotated, _id: photo._id, source: filePath })
 	return photo
 }

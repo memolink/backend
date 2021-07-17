@@ -1,6 +1,6 @@
 const { photoQueue, detectQueue, backupQueue } = require('./index')
 const path = require('path')
-const { getSettings } = require('../../settings/service')
+const models = require('../../../models')
 
 const addHandlers = queue =>
 	queue
@@ -20,17 +20,15 @@ const queues = { photoQueue, detectQueue, backupQueue }
 
 Object.keys(queues).forEach(queueName => {
 	const otherQueues = Object.keys(queues).filter(queue => queue !== queueName)
+
 	queues[queueName].on('drained', async () => {
 		const counts = await Promise.all(otherQueues.map(queueName => queues[queueName].getJobCounts()))
 		console.log({ drained: queueName, counts })
 		if (counts.reduce((sum, { waiting, active, completed, failed, delayed }) => sum + waiting + active + delayed, 0) !== 0) return
-
-		const settings = await getSettings()
-		settings.syncthing.lastScanCompleted = new Date()
-		await settings.save()
+		await models.Settings.updateOne({}, { lastScanCompleted: new Date() })
 	})
 })
 
-photoQueue.process(16, path.resolve('./services/recognition/queues/runners/photo.js'))
+photoQueue.process(1, path.resolve('./services/recognition/queues/runners/photo.js'))
 detectQueue.process(1, path.resolve('./services/recognition/queues/runners/detect.js'))
-backupQueue.process(4, path.resolve('./services/recognition/queues/runners/backup.js'))
+backupQueue.process(1, path.resolve('./services/recognition/queues/runners/backup.js'))
