@@ -7,6 +7,7 @@ module.exports = async function ({ data: { files }, ...job }) {
 	const hashes = []
 	const failedFiles = []
 	let count = 0
+
 	for (let filePath of files) {
 		try {
 			hashes.push({ filePath, hash: await md5File(filePath) })
@@ -16,11 +17,7 @@ module.exports = async function ({ data: { files }, ...job }) {
 		count++
 		job.progress(count / files.length)
 	}
-	// const hashes = {}
-	// for (let file of files) {
-	// 	const filePath = path.join(tempdir, file)
-	// 	hashes[filePath] = await md5File(filePath)
-	// }
+
 	const uploadedFiles = await models.Photo.find(
 		{
 			$or: [{ hash: { $in: hashes.map(({ hash }) => hash) } }, { originalHash: { $in: hashes.map(({ hash }) => hash) } }],
@@ -34,9 +31,10 @@ module.exports = async function ({ data: { files }, ...job }) {
 		if (uploadedHashes.includes(hash)) await fs.unlink(filePath)
 		else newFiles.push({ hash, filePath })
 	}
+
 	console.log('hashes', hashes.length, 'uploadedHashes', uploadedHashes.length, 'newFiles', newFiles.length)
 
-	await photoQueue.addBulk(newFiles.map(data => ({ data })))
+	await photoQueue.addBulk(newFiles.map(data => ({ data, opts: { jobId: data.hash } })))
 
 	return { hashes, uploadedHashes, newFiles, failedFiles }
 }

@@ -20,7 +20,6 @@ module.exports = mongoose => {
 
 	const schema = new mongoose.Schema({
 		video: Boolean,
-		rotated: Number,
 		thumb: String,
 		thumbvideo: String,
 		source: String,
@@ -35,6 +34,10 @@ module.exports = mongoose => {
 			index: '2dsphere',
 		},
 		date: Date,
+		uploadDate: {
+			type: Date,
+			default: Date.now,
+		},
 		tags: [
 			{
 				mid: String,
@@ -43,6 +46,10 @@ module.exports = mongoose => {
 			},
 		],
 		metadata: Object,
+		mediaInfo: {
+			general: Object,
+			tracks: [Object],
+		},
 	})
 	schema.plugin(aggregatePaginate)
 

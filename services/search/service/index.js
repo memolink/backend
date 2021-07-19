@@ -3,7 +3,7 @@ const path = require('path')
 const models = require('../../../models')
 const createError = require('http-errors')
 const Redis = require('ioredis')
-const sub = new Redis()
+const sub = new Redis({ host: process.env.REDIS_HOST, port: process.env.REDIS_PORT })
 let key
 
 sub.subscribe('settings.searchApiKey', err => err && console.error('redis error subscribing to settings.searchApiKey: ', err))
@@ -42,7 +42,7 @@ async function getPhotos({ searchTerm, limit, minimalScore = 50, sort = 'score',
 		toDate = new Date(parseInt(toDate))
 	} else {
 		toDate = new Date()
-		toDate.setDate(toDate.getDate() - 30)
+		toDate.setDate(toDate.getDate() - 30000)
 	}
 
 	console.log({
@@ -61,6 +61,7 @@ async function getPhotos({ searchTerm, limit, minimalScore = 50, sort = 'score',
 					$gt: new Date(toDate),
 					$lte: new Date(fromDate),
 				},
+				backup: true,
 			},
 		},
 	]

@@ -1,12 +1,22 @@
 const Queue = require('bull')
 
-const photoQueue = new Queue('photo', {
+const defaultOptions = {
 	defaultJobOptions: {
-		attempts: 15,
+		// lockDuration: 1000 * 60 * 10,
+		attempts: 2,
 		backoff: {
+			type: 'fixed',
 			delay: 5000,
 		},
 	},
+	redis: {
+		host: process.env.REDIS_HOST,
+		port: process.env.REDIS_PORT,
+	},
+}
+
+const photoQueue = new Queue('photo', {
+	...defaultOptions,
 	limiter: {
 		max: 1800,
 		duration: 1000 * 60,
@@ -14,25 +24,11 @@ const photoQueue = new Queue('photo', {
 })
 
 const detectQueue = new Queue('detect', {
-	defaultJobOptions: {
-		lockDuration: 1000 * 60 * 5,
-		attempts: 15,
-		backoff: {
-			type: 'fixed',
-			delay: 5000,
-		},
-	},
+	...defaultOptions,
 })
 
 const backupQueue = new Queue('backup', {
-	defaultJobOptions: {
-		lockDuration: 1000 * 60 * 10,
-		attempts: 15,
-		backoff: {
-			type: 'fixed',
-			delay: 5000,
-		},
-	},
+	...defaultOptions,
 })
 
 //;[detectQueue, photoQueue].forEach(queue => queue.obliterate({ force: true }))

@@ -4,9 +4,10 @@ const fs = require('fs/promises')
 const exifr = require('exifr')
 const md5File = require('md5-file')
 const { backupQueue } = require('..')
-const { rotationActions, ffprobe } = require('../../../../helpers')
+const { rotationActions, getMediaInfo } = require('../../../../helpers')
 const Redis = require('ioredis')
-const sub = new Redis()
+const { max, map } = require('lodash')
+const sub = new Redis({ host: process.env.REDIS_HOST, port: process.env.REDIS_PORT })
 let client
 
 const rotations = {
@@ -46,16 +47,15 @@ module.exports = async function (job) {
 	const hashDuplicate = await models.Photo.findOne({ $or: [{ hash }, { originalHash: hash }] })
 	if (hashDuplicate) return { filePath, hashDuplicate }
 
+	const stat = await fs.stat(filePath)
 	const exif = await exifr.parse(filePath).catch(err => console.error('exif: ', err, filePath))
 	const rotated = rotations[exif?.Orientation] || null
-	const ff = await ffprobe(filePath).catch(err => console.error('ff: ', err))
-	if (!ff && !exif) {
+	const mediaInfo = await getMediaInfo(filePath)
+	if (['ImageCount', 'VideoCount'].reduce((total, countType) => total + (+mediaInfo.general[countType] || 0), 0) < 1) {
 		await fs.unlink(filePath)
 		return { filePath, notMedia: true }
 	}
 
-	const stat = await fs.stat(filePath).catch(err => console.error('stat: ', err))
-	//console.log(util.inspect({ exif, ff, stat }, { showHidden: false, depth: null }))
 	job.progress(30)
 	let tags
 	if (!exif) {
@@ -82,37 +82,55 @@ module.exports = async function (job) {
 
 	job.progress(70)
 
-	const video = ff?.streams?.some(({ duration_ts }) => duration_ts > 1)
+	const video = +mediaInfo.general.VideoCount > 0
 
-	const dimensions = [exif?.ExifImageWidth || ff?.streams?.[0]?.width, exif?.ExifImageHeight || ff?.streams?.[0]?.height]
+	const dimensions = [exif?.ExifImageWidth || max(map(mediaInfo.tracks, 'Width')), exif?.ExifImageHeight || max(map(mediaInfo.tracks, 'Height'))]
 	if (rotationActions?.[rotated]?.dimensionSwapped) dimensions.reverse()
 	const [width, height] = dimensions
+
+	let coordinates
+	if (exif?.longitude && exif?.latitude) {
+		coordinates = [exif.longitude, exif.latitude]
+	} else if (mediaInfo.general?.extra?.xyz) {
+		coordinates = mediaInfo.general.extra.xyz.split('+').map(parseFloat)
+		if (coordinates.length === 3) coordinates.shift()
+		coordinates.reverse()
+	}
 
 	const photo = await models.Photo.findOneAndUpdate(
 		{ originalHash: hash },
 		{
 			video,
-			rotated,
 			width,
 			height,
-			date: exif?.CreateDate || ff?.streams?.[0]?.tags?.creation_time || stat?.mtime,
-			location:
-				exif?.longitude && exif?.latitude
-					? {
-							type: 'Point',
-							coordinates: [exif.longitude, exif.latitude],
-					  }
-					: null,
+			date: exif?.CreateDate || mediaInfo.general.Encoded_Date || stat?.mtime,
+			location: coordinates && {
+				type: 'Point',
+				coordinates,
+			},
 			source: filePath,
 			originalSource: filePath,
 			hash,
 			originalHash: hash,
 			tags,
 			metadata: exif,
+			mediaInfo,
 		},
 		{ new: true, upsert: true }
 	)
 
-	backupQueue.add({ ff, width, height, rotated, _id: photo._id, source: filePath })
+	backupQueue.add(
+		{
+			width,
+			height,
+			_id: photo._id,
+			source: filePath,
+			video,
+			streamable: mediaInfo.general.IsStreamable !== 'No',
+			bitrate: parseInt(mediaInfo.general.OverallBitRate),
+		},
+		{ jobId: hash }
+	)
+
 	return photo
 }

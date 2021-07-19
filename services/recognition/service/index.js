@@ -5,29 +5,18 @@ const md5File = require('md5-file')
 const syncthing = require('node-syncthing')
 const { photoQueue, detectQueue } = require('../queues')
 const { isEqual, pick, chunk } = require('lodash')
-const Redis = require('ioredis')
-const sub = new Redis()
 
 let st
 let oldSt
+
 // should call this when syncthing config changes
-async function updateSyncthing(config) {
-	if (!config) {
-		const settings = await models.Settings.findOne({}, 'syncthing')
-		if (!settings?.syncthing) return console.error('no syncthing settings defined')
-		config = settings.syncthing
-	}
-
-	const { host, port, apiKey, importFolders } = config
-
-	st = syncthing({ host, port, apiKey, eventListener: true })
+async function updateSyncthing() {
+	st = syncthing({ host: process.env.SYNCTHING_HOST, port: process.env.SYNCTHING_PORT, apiKey: process.env.SYNCTHING_API_KEY, eventListener: true })
 	const { folders } = await st.system.getConfig()
 
-	st.on('itemFinished', async ({ action, error, folder, item, type }, { time }) => {
+	st.on('itemFinished', async ({ action, error, folder, item, type }) => {
 		if (error !== null) return console.error(error)
-		else if (type !== 'file' || action !== 'update' || !importFolders?.includes(folder)) return
-
-		time = new Date(time)
+		else if (type !== 'file' || action !== 'update') return
 
 		const filePath = path.join(folders.find(({ id }) => id === folder).path, item)
 		const hash = await md5File(filePath)
@@ -39,7 +28,7 @@ async function updateSyncthing(config) {
 			['hash', 'originalHash']
 		)
 		if (uploadedFile) return
-		await photoQueue.add({ filePath, hash, time, folder })
+		await photoQueue.add({ filePath, hash })
 	})
 
 	// detect folder path changes and update syncthing
@@ -56,9 +45,6 @@ async function updateSyncthing(config) {
 	console.log('updated syncthing config')
 }
 
-sub.subscribe('settings.syncthing', err => err && console.error('redis error subscribing to settings.syncthing: ', err))
-sub.on('message', (channel, message) => updateSyncthing(JSON.parse(message)))
-
 async function getFiles(dir) {
 	const dirents = await fs.readdir(dir, { withFileTypes: true })
 	const files = await Promise.all(
@@ -74,7 +60,7 @@ async function getFiles(dir) {
 async function runScan() {
 	const { folders } = await st.system.getConfig()
 
-	const settings = await models.Settings.findOne({}, ['lastScan', 'lastScanCompleted', 'syncthing'])
+	const settings = await models.Settings.findOne({}, ['lastScan', 'lastScanCompleted'])
 	if (!settings) return console.error('no settings defined, skipping scan')
 	else if (settings.lastScan && (!settings.lastScanCompleted || new Date() - settings.lastScanCompleted < 1000 * 60 * 5))
 		return console.log('scan stopped, lastScan was less than 5m ago')
@@ -85,19 +71,16 @@ async function runScan() {
 
 	let totalNewFiles = 0
 
-	async function checkFolder(folderId) {
-		const folderPath = folders.find(({ id }) => folderId === id)?.path
-		if (!folderPath) return console.error(`folder path not found for folder id: ${folderId}`)
-
+	async function checkFolder(folderPath) {
 		const files = await getFiles(folderPath)
 		if (!files.length) return console.log(`no files found in folder id: ${folderId}, skipping detection`)
 
-		console.log(`new files in folder id: ${folderId}, count: ${files.length}`)
+		console.log(`new files in folder: ${folderPath}, count: ${files.length}`)
 		await detectQueue.addBulk(chunk(files, 50).map(files => ({ data: { files } })))
 		totalNewFiles += files.length
 	}
 
-	for (let folderId of settings.syncthing.importFolders) await checkFolder(folderId)
+	for (let { path } of folders) await checkFolder(path)
 
 	if (totalNewFiles !== 0) return true
 

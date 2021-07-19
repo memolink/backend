@@ -1,38 +1,76 @@
-version: '3'
+version: '3.9'
 
 services:
+    frontend:
+        image: memolink_frontend
+        container_name: mlfrontend
+        ports:
+            - '80:80'
+        networks:
+            - app-network
     backend:
         build:
             context: .
             dockerfile: Dockerfile
-        image: node:14-alpine
-        container_name: backend
+        container_name: mlbackend
         restart: unless-stopped
         env_file: .env
-        # environment:
-        #   - MONGO_USERNAME=$MONGO_USERNAME
-        #   - MONGO_PASSWORD=$MONGO_PASSWORD
-        #   - MONGO_HOSTNAME=db
-        #   - MONGO_PORT=$MONGO_PORT
-        #   - MONGO_DB=$MONGO_DB
+        environment:
+            - MONGOOSE_URL=mongodb://mldb:27017/syncapp
+            - REDIS_HOST=mlredis
+            - REDIS_PORT=6379
+            - SYNCTHING_HOST=mlsyncthing
+            - SYNCTHING_PORT=8384
+            - SYNCTHING_API_KEY=do-not-change-memolink
+            - PORT=3001
         ports:
             - '3001:3001'
         volumes:
             - .:/home/node/app
             - node_modules:/home/node/app/node_modules
+            - sync:/sync
         networks:
             - app-network
-        command: /home/node/app/node_modules/.bin/nodemon index.js
     db:
         image: mongo
-        container_name: db
+        container_name: mldb
         restart: unless-stopped
         env_file: .env
-        # environment:
-        #     - MONGO_INITDB_ROOT_USERNAME=$MONGO_USERNAME
-        #     - MONGO_INITDB_ROOT_PASSWORD=$MONGO_PASSWORD
+        ports:
+            - '27017:27017'
         volumes:
             - dbdata:/data/db
+        networks:
+            - app-network
+    redis:
+        container_name: mlredis
+        image: redis
+        restart: unless-stopped
+        expose:
+            - 6379
+        volumes:
+            - ./conf/redis.conf:/usr/local/etc/redis/redis.conf
+            - redisdata:/data
+        command: ['redis-server', '--bind', 'mlredis', '--port', '6379']
+        networks:
+            - app-network
+    syncthing:
+        image: ghcr.io/linuxserver/syncthing
+        container_name: mlsyncthing
+        environment:
+            - PUID=1000
+            - PGID=1000
+        volumes:
+            - ./conf/syncthing:/config
+            - syncdata1:/data1
+            - syncdata2:/data2
+            - sync:/sync
+        ports:
+            - 8384:8384
+            - 22000:22000/tcp
+            - 22000:22000/udp
+            - 21027:21027/udp
+        restart: unless-stopped
         networks:
             - app-network
 
@@ -41,5 +79,9 @@ networks:
         driver: bridge
 
 volumes:
+    redisdata:
     dbdata:
+    syncdata1:
+    syncdata2:
+    sync:
     node_modules:

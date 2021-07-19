@@ -1,17 +1,19 @@
 FROM node:14-alpine
 
-RUN apk add  --no-cache ffmpeg
+USER root
 
-RUN mkdir -p /home/node/app/node_modules && chown -R node:node /home/node/app
+RUN mkdir -p /home/node/app/node_modules
+RUN mkdir -p /sync/example && chown -R 1000: /sync
+RUN chown -R 1000: /home/node/app
 
 WORKDIR /home/node/app
 COPY package*.json ./
-USER node
+USER 1000
 # RUN npm ci --only=production
 RUN npm install
 # COPY . .
-COPY --chown=node:node . .
+COPY --chown=1000: . .
 
 EXPOSE 8080
 
-CMD [ "npm", "run start" ]
+CMD [ "npm", "run", "dev" ]

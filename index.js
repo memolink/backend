@@ -5,13 +5,15 @@ const morgan = require('morgan')
 const { createBullBoard } = require('@bull-board/api')
 const { BullAdapter } = require('@bull-board/api/bullAdapter')
 const { ExpressAdapter } = require('@bull-board/express')
+const queues = require('./services/recognition/queues/index.js')
 
 const serverAdapter = new ExpressAdapter()
-serverAdapter.setBasePath('/api/queues')
+serverAdapter.setBasePath('/queues')
 
-const queues = [...Object.values(require('./services/recognition/queues/index.js'))].map(queue => new BullAdapter(queue))
-const { addQueue, removeQueue, setQueues, replaceQueues } = createBullBoard({
-	queues,
+//queues.backupQueue.removeJobs('bf5cb6a493f84ecec2d789f9af409dd5')
+
+createBullBoard({
+	queues: Object.values(queues).map(queue => new BullAdapter(queue)),
 	serverAdapter: serverAdapter,
 })
 
@@ -23,7 +25,8 @@ const server = http.createServer(app)
 app.set('port', process.env.PORT || 3001)
 
 require('./services/recognition/queues/init.js')
-const recognition = require('./services/recognition/service')
+require('./services/recognition/service')
+
 const search = require('./services/search/routes')
 const settings = require('./services/settings/routes')
 app.use('/search', search)

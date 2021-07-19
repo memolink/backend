@@ -92,3 +92,5 @@ backup
 test
 jwt.keys.json
 *.exe
+
+conf/syncthing
