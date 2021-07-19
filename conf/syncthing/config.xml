@@ -1,10 +1,10 @@
 <configuration version="35">
     <gui enabled="true" tls="false" debugging="false">
-        <address>127.0.0.1:8384</address>
+        <address>0.0.0.0:8384</address>
         <apikey>do-not-change-memolink</apikey>
         <theme>default</theme>
     </gui>
-    <folder id="example-folder" label="example folder for backup" path="/sync/example" type="receiveonly" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="true" autoNormalize="true">
+    <folder id="example-folder" label="example folder for memolink" path="/sync/example" type="receiveonly" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="true" autoNormalize="true">
         <filesystemType>basic</filesystemType>
         <minDiskFree unit="%">1</minDiskFree>
         <versioning>
