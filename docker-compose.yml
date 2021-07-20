@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
     frontend:
-        image: memolink_frontend
+        image: sliter/memolink-frontend:latest
         container_name: mlfrontend
         ports:
             - '80:80'
