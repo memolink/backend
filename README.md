@@ -19,4 +19,4 @@ Memolink tries to recreate experience that the aforementioned app provided.
 * Set up settings using [postman](https://documenter.getpostman.com/view/14162659/TzsWtA3r#c355abfd-7a71-487a-a2cd-e3c7bce5bd42) (make PUT request to http://localhost/api/settings)
 * Connect the other device to syncthing at http://localhost/syncthing with this [guide](https://docs.syncthing.net/intro/getting-started.html#configuring)
 * View and search your gallery at http://localhost
-* Monitor bull queues at https://localhost/queues
+* Monitor bull queues at http://localhost/queues
