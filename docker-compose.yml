@@ -65,11 +65,12 @@ services:
             - syncdata1:/data1
             - syncdata2:/data2
             - sync:/sync
+        expose:
+            - 8384
         ports:
-            - 8384:8384
-            - 22000:22000/tcp
-            - 22000:22000/udp
-            - 21027:21027/udp
+            - 22005:22005/tcp
+            - 22005:22005/udp
+            - 21032:21032/udp
         restart: unless-stopped
         networks:
             - app-network
