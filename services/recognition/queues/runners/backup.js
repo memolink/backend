@@ -32,7 +32,7 @@ module.exports = async job => {
 
 	if (!backupPath) throw new Error('Backup path not specified')
 
-	const { _id, width, height, source: oldPath, video, streamable, bitrate } = job.data
+	const { _id, width, height, source: oldPath, video, bitrate } = job.data
 
 	if (!converters || converters.length < 1) {
 		console.log('no converters found, copying source file')
@@ -48,39 +48,41 @@ module.exports = async job => {
 
 	job.progress(10)
 
-	const convert = async (preset, output) => {
-		const writeStream = createWriteStream(output)
-
-		const converter = converters[nextConverter]
-		nextConverter = (nextConverter + 1) % converters.length
-
-		const result = await axios.post(`${converter.url}/${video ? 'video' : 'photo'}`, createReadStream(oldPath), {
-			params: { preset, streamable },
-			headers: { Authorization: converter.key },
-			responseType: 'stream',
-		})
-
-		result.data.pipe(writeStream)
-
-		return finished(writeStream)
-	}
-
-	const conversions = []
-
+	const presets = { thumb }
 	if (video) {
-		if (bitrate > 2000000) conversions.push(convert('full', newPath))
-		else conversions.push(fs.copyFile(oldPath, newPath))
+		presets.thumbvideo = thumbvideo
 
-		conversions.push(convert('thumbvideo', thumbvideo))
-	} else {
-		conversions.push(convert('full', newPath))
+		if (bitrate > 2000000) presets.full = newPath
+		else await fs.copyFile(oldPath, newPath)
 	}
 
-	conversions.push(convert('thumb', thumb))
+	const converter = converters[nextConverter]
+	nextConverter = (nextConverter + 1) % converters.length
+
+	const convertResult = await axios.post(`${converter.url}/convert/${video ? 'video' : 'photo'}`, createReadStream(oldPath), {
+		params: { presets: Object.keys(presets) },
+		headers: { Authorization: converter.key },
+	})
+
+	const tempId = convertResult?.data?.id
+	if (!tempId) throw new Error('Converter error: ', JSON.stringify(convertResult.data))
 
 	// TODO: track progress
 
-	await Promise.all(conversions).catch(console.error)
+	await Promise.all(
+		Object.entries(presets).map(async ([preset, output]) => {
+			const writeStream = createWriteStream(output)
+
+			const file = await axios.get(`${converter.url}/temp/${tempId}/${preset}`, {
+				headers: { Authorization: converter.key },
+				responseType: 'stream',
+			})
+
+			file.data.pipe(writeStream)
+
+			return finished(writeStream)
+		})
+	)
 
 	job.progress(90)
 
@@ -99,5 +101,14 @@ module.exports = async job => {
 	)
 
 	await fs.unlink(oldPath)
+
+	await axios.post(
+		`${converter.url}/temp/${tempId}/cleanup`,
+		{},
+		{
+			headers: { Authorization: converter.key },
+		}
+	)
+
 	return { oldPath, newPath, thumb, thumbvideo }
 }

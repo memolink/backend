@@ -3,6 +3,7 @@ const Queue = require('bull')
 const defaultOptions = {
 	defaultJobOptions: {
 		// lockDuration: 1000 * 60 * 10,
+		timeout: 1000 * 60 * 2,
 		attempts: 2,
 		backoff: {
 			type: 'fixed',

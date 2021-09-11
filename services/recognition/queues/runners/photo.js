@@ -126,7 +126,6 @@ module.exports = async function (job) {
 			_id: photo._id,
 			source: filePath,
 			video,
-			streamable: mediaInfo.general.IsStreamable !== 'No',
 			bitrate: parseInt(mediaInfo.general.OverallBitRate),
 		},
 		{ jobId: hash }
