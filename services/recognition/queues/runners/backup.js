@@ -54,6 +54,8 @@ module.exports = async job => {
 
 		if (bitrate > 2000000) presets.full = newPath
 		else await fs.copyFile(oldPath, newPath)
+	} else {
+		presets.full = newPath
 	}
 
 	const converter = converters[nextConverter]
@@ -62,6 +64,7 @@ module.exports = async job => {
 	const convertResult = await axios.post(`${converter.url}/convert/${video ? 'video' : 'photo'}`, createReadStream(oldPath), {
 		params: { presets: Object.keys(presets) },
 		headers: { Authorization: converter.key },
+		maxBodyLength: Infinity,
 	})
 
 	const tempId = convertResult?.data?.id

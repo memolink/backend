@@ -73,7 +73,7 @@ async function runScan() {
 
 	async function checkFolder(folderPath) {
 		const files = await getFiles(folderPath)
-		if (!files.length) return console.log(`no files found in folder id: ${folderId}, skipping detection`)
+		if (!files.length) return console.log(`no files found in folder id: ${folderPath}, skipping detection`)
 
 		console.log(`new files in folder: ${folderPath}, count: ${files.length}`)
 		await detectQueue.addBulk(chunk(files, 50).map(files => ({ data: { files } })))

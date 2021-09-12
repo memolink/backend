@@ -1,5 +1,6 @@
 const fs = require('fs/promises')
 const MediaInfoFactory = require('mediainfo.js')
+const mediaInfoPromise = MediaInfoFactory({ format: 'object' })
 
 const rotationActions = {
 	1: { dimensionSwapped: false, scaleX: 1, scaleY: 1, deg: 0, rad: 0 },
@@ -14,7 +15,6 @@ const rotationActions = {
 
 const getMediaInfo = async file => {
 	let fileHandle
-	let mediaInfo
 
 	const readChunk = async (size, offset) => {
 		const buffer = new Uint8Array(size)
@@ -25,18 +25,18 @@ const getMediaInfo = async file => {
 	try {
 		fileHandle = await fs.open(file, 'r')
 		const fileSize = (await fileHandle.stat()).size
-		mediaInfo = await MediaInfoFactory({ format: 'object' })
-		return await mediaInfo
-			.analyzeData(() => fileSize, readChunk)
-			.then(({ media: { track: tracks } }) => {
-				const general = tracks.shift()
-				return { general, tracks }
-			})
+
+		const {
+			media: { track: tracks },
+		} = await (await mediaInfoPromise).analyzeData(() => fileSize, readChunk)
+
+		const general = tracks.shift()
+
+		return { general, tracks }
 	} catch (err) {
 		throw err
 	} finally {
 		fileHandle && (await fileHandle.close())
-		mediaInfo && mediaInfo.close()
 	}
 }
 
