@@ -23,9 +23,11 @@ services:
             - SYNCTHING_PORT=8384
             - SYNCTHING_API_KEY=do-not-change-memolink
             - PORT=3001
-        expose:
-            - 3001
+        ports:
+            - '3001:3001'
         volumes:
+            - .:/home/node/app
+            - node_modules:/home/node/app/node_modules
             - sync:/sync
         networks:
             - app-network
@@ -34,8 +36,8 @@ services:
         container_name: mldb
         restart: unless-stopped
         env_file: .env
-        expose:
-            - 27017
+        ports:
+            - '27017:27017'
         volumes:
             - dbdata:/data/db
         networks:
@@ -83,3 +85,4 @@ volumes:
     syncdata1:
     syncdata2:
     sync:
+    node_modules:
